@@ -1,7 +1,7 @@
 """
-    ros2 run formation_interface command_node
-    ros2 run formation_interface command_node --ros-args \\
-        -p drone_domains:="[1,2,3,4,5,6,7]" -p drone_namespaces:="['px4_1','px4_2','px4_3','px4_4','px4_5','px4_6','px4_7']"
+    ros2 run ground_station command_node
+    ros2 run ground_station command_node --ros-args \
+        -p drone_domains:="[1,2]" -p drone_namespaces:="['drone1','drone2']"
 """
 
 import time
