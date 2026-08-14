@@ -79,9 +79,12 @@ def _run_menu(targets):
         print(f"  -> {target.describe()}")
     print()
     while True:
-        print("  1) hover")
-        print("  2) land")
-        print("  3) custom command")
+        print("  0) arm")
+        print("  1) fly")
+        print("  2) hover")
+        print("  3) land")
+        print("  4) straight line")
+        print("  5) custom command")
         print("  q) quit")
         try:
             choice = input("Select: ").strip().lower()
@@ -90,11 +93,17 @@ def _run_menu(targets):
 
         if choice in ("q", "quit", "exit"):
             break
-        elif choice in ("1", "hover"):
+        elif choice in ("0", "arm"):
+            _broadcast(targets, "arm")
+        elif choice in ("1", "fly"):
+            _broadcast(targets, "fly")
+        elif choice in ("2", "hover"):
             _broadcast(targets, "hover")
-        elif choice in ("2", "land"):
+        elif choice in ("3", "land"):
             _broadcast(targets, "land")
-        elif choice in ("3", "custom"):
+        elif choice in ("4", "straight"):
+            _broadcast(targets, "straight")
+        elif choice in ("5", "custom"):
             try:
                 text = input("Enter custom command string: ").strip()
             except EOFError:
