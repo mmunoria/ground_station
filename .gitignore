@@ -1,0 +1,9 @@
+build/
+install/
+log/
+.vscode/
+.claude/
+src/.vscode/
+__pycache__/
+*.pyc
+

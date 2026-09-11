@@ -1,0 +1,40 @@
+{
+  "schema_version": "2.0",
+  "run_number": null,
+  "coordinate_system": "tunnel",
+  "flight_type": null,
+  "num_drones": null,
+  "flight_speed_mps": null,
+  "delay_per_setpoint": null,
+  "drones": [
+    {
+      "drone_id": null,
+      "setpoints_m": [
+        { "x": null, "y": null, "z": null }
+      ],
+      "location_code": null,
+      "altitude_code": null
+    }
+  ],
+  "meta_data": {
+    "run_number": null,
+    "num_drones": null,
+    "run_name": null,
+    "halo_sequence": null,
+    "hover_or_traverse": null,
+    "turbulence_plate_installed": null,
+    "halo_test_attributes": null,
+    "duration_s": null,
+    "flow_speed_mps": null,
+    "flow_conditions": null,
+    "tunnel_test_sequence": null,
+    "test_conditions": [
+      {
+        "flow_speed_kph": null,
+        "sound_source_tone": null,
+        "active_point_source_id": null
+      }
+    ],
+    "notes": null
+  }
+}

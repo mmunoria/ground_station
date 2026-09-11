@@ -1,0 +1,47 @@
+{
+  "schema_version": "2.0",
+  "run_number": 5,
+  "coordinate_system": "tunnel",
+  "flight_type": "hover",
+  "num_drones": 5,
+  "flight_speed_mps": 1,
+  "drones": [
+    {
+      "drone_id": 1,
+      "setpoints_m": [
+        { "x": 0, "y": 0, "z": 0.5 }
+      ]
+    },
+    {
+      "drone_id": 2,
+      "setpoints_m": [
+        { "x": 0.5, "y": 0.5, "z": 0.5 }
+      ]
+    },
+    {
+      "drone_id": 3,
+      "setpoints_m": [
+        { "x": 0.5, "y": -0.5, "z": 0.5 }
+      ]
+    },
+    {
+      "drone_id": 4,
+      "setpoints_m": [
+        { "x": -0.5, "y": 0.5, "z": 0.5 }
+      ]
+    },
+    {
+      "drone_id": 5,
+      "setpoints_m": [
+        { "x": -0.5, "y": -0.5, "z": 0.5 }
+      ]
+    }
+  ],
+  "meta_data": {
+    "run_number": 5,
+    "num_drones": 5,
+    "flow_speed_mps": null,
+    "flow_conditions": null,
+    "tunnel_test_sequence": null
+  }
+}
