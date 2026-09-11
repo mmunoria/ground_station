@@ -8,25 +8,25 @@ Graphical front-end for the ground_station command node.
 
 Everything the terminal menu (command_node.py) offers -- arm/fly/hover/straight
 /land plus arbitrary custom command strings, broadcast to every configured
-domain -- is available here as buttons/fields. Alongside those, three more
-broadcast controls each publish on their own topic rather than /command:
-mode (manual/position/offboard buttons -> /mode), flight type (hover/traverse
-buttons -> /flight_type, also sent whenever a flight formation is dispatched),
-and delay_per_setpoint (a seconds value -> /delay_per_setpoint). None of these
-three come from a file -- they're direct, manual broadcasts. In addition, a
-per-drone panel lets you pick one domain by ID and send it a single
-geometry_msgs/PoseStamped setpoint or build up a nav_msgs/Path of waypoints
-and send that.
+domain -- is available here as buttons/fields. Alongside those, a "Mode" row
+of buttons (manual/position/offboard) broadcasts on each domain's /mode topic,
+also not tied to any file. In addition, a per-drone panel lets you pick one
+domain by ID and send it a single geometry_msgs/PoseStamped setpoint or build
+up a nav_msgs/Path of waypoints and send that.
 
 A "Flight formation" panel loads one of the JSON files described in
 ../../../flight_formations/README.md (schema_version/run_number/flight_type/
-drones[]/meta_data) and dispatches every drone in it in one click: each
-drones[] entry's drone_id is matched to a configured DomainTarget (see
-_target_for_drone_id) and sent a single setpoint for its first setpoints_m
-entry (flight_type "hover", to hold position) plus a "speed <mps>" command
-when traversing (flight_type "traverse"). Either way, every setpoints_m
-entry -- one or many -- is also mirrored onto /path in order, so /path is
-never left empty (or truncated) after a formation dispatch.
+delay_per_setpoint/drones[]/meta_data) and dispatches every drone in it in
+one click: each drones[] entry's drone_id is matched to a configured
+DomainTarget (see _target_for_drone_id) and sent a single setpoint for its
+first setpoints_m entry (flight_type "hover", to hold position) plus a
+"speed <mps>" command when traversing (flight_type "traverse"). Either way,
+every setpoints_m entry -- one or many -- is also mirrored onto /path in
+order, so /path is never left empty (or truncated) after a formation
+dispatch, and the file's flight_type and delay_per_setpoint (when present)
+are published as-is on each dispatched drone's /flight_type and
+/delay_per_setpoint topics -- there is no separate UI control for either,
+the formation file is the only source for them.
 
 Threading model
 ----------------
@@ -93,14 +93,6 @@ PRESET_MODES = [
     ("manual", "manual"),
     ("position", "position"),
     ("offboard", "offboard"),
-]
-
-# Flight type buttons -- broadcasts on each domain's /flight_type topic.
-# Mirrors flight_formations' flight_type values ("hover"/"traverse"), but can
-# be sent on its own, independent of loading a formation file.
-PRESET_FLIGHT_TYPES = [
-    ("hover", "hover"),
-    ("traverse", "traverse"),
 ]
 
 
@@ -177,28 +169,6 @@ class MainWindow(QMainWindow):
             btn.clicked.connect(lambda _checked=False, t=text: self._broadcast_mode(t))
             mode_row.addWidget(btn)
         layout.addLayout(mode_row)
-
-        flight_type_row = QHBoxLayout()
-        flight_type_row.addWidget(QLabel("Flight type:"))
-        for label, text in PRESET_FLIGHT_TYPES:
-            btn = QPushButton(label)
-            btn.clicked.connect(
-                lambda _checked=False, t=text: self._broadcast_flight_type(t))
-            flight_type_row.addWidget(btn)
-        layout.addLayout(flight_type_row)
-
-        delay_row = QHBoxLayout()
-        delay_row.addWidget(QLabel("Delay per setpoint (s):"))
-        self.delay_per_setpoint_spin = QDoubleSpinBox()
-        self.delay_per_setpoint_spin.setRange(0.0, 3600.0)
-        self.delay_per_setpoint_spin.setDecimals(2)
-        self.delay_per_setpoint_spin.setSingleStep(0.5)
-        delay_row.addWidget(self.delay_per_setpoint_spin)
-        send_delay_btn = QPushButton("Send")
-        send_delay_btn.clicked.connect(self._send_delay_per_setpoint)
-        delay_row.addWidget(send_delay_btn)
-        delay_row.addStretch(1)
-        layout.addLayout(delay_row)
 
         return box
 
@@ -326,17 +296,6 @@ class MainWindow(QMainWindow):
         for target in self.targets:
             target.publish_mode(text)
         self._log(f"mode {text!r} -> {len(self.targets)} target(s)")
-
-    def _broadcast_flight_type(self, text):
-        for target in self.targets:
-            target.publish_flight_type(text)
-        self._log(f"flight_type {text!r} -> {len(self.targets)} target(s)")
-
-    def _send_delay_per_setpoint(self):
-        seconds = self.delay_per_setpoint_spin.value()
-        for target in self.targets:
-            target.publish_delay_per_setpoint(seconds)
-        self._log(f"delay_per_setpoint {seconds:.2f}s -> {len(self.targets)} target(s)")
 
     def _selected_target(self):
         if not self.targets:
@@ -535,8 +494,8 @@ class MainWindow(QMainWindow):
             waypoints = [(p["x"], p["y"], p["z"], 0.0) for p in setpoints]
             target.publish_path(waypoints)
             # flight_type and delay_per_setpoint come straight from the loaded
-            # formation file (see flight_formations/README.md), not from the
-            # standalone "Flight type" / "Delay per setpoint" broadcast controls.
+            # formation file (see flight_formations/README.md) -- there is no
+            # separate UI control for either.
             target.publish_flight_type(flight_type)
             if delay is not None:
                 target.publish_delay_per_setpoint(delay)
