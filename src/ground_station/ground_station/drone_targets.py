@@ -15,20 +15,40 @@ unchanged -- and now publishes six things into that domain:
   * std_msgs/String        on  /{namespace}/flight_type (hover/traverse)
   * std_msgs/Float64       on  /{namespace}/delay_per_setpoint (seconds)
 
+Each `DomainTarget` also *subscribes* to that domain's /rosout
+(rcl_interfaces/msg/Log). Every ROS 2 node publishes its `get_logger()` calls
+there by default -- offboard/mocap/estimator nodes included -- so this one
+subscription per domain, not per node, is enough to see every log message
+(including errors) any node on that drone emits, with no change needed on
+the drone side. Entries are buffered in `DomainTarget.log_entries` and handed
+to the caller via `drain_new_logs()` -- see command_gui.py's log panel for
+the consumer -- rather than acted on inline, so a slow UI can't stall the
+executor.
+
 All poses use frame_id "map" to match the OptiTrack mocap global frame.
 """
 
+import collections
 import math
 
 import rclpy
 from geometry_msgs.msg import PoseStamped
 from nav_msgs.msg import Path
+from rcl_interfaces.msg import Log
 from rclpy.context import Context
 from rclpy.executors import SingleThreadedExecutor
 from rclpy.parameter import Parameter
 from std_msgs.msg import Float64, String
 
 FRAME_ID = "map"
+
+LOG_LEVEL_NAMES = {
+    Log.DEBUG: "DEBUG",
+    Log.INFO: "INFO",
+    Log.WARN: "WARN",
+    Log.ERROR: "ERROR",
+    Log.FATAL: "FATAL",
+}
 
 
 def yaw_to_quaternion(yaw_rad):
@@ -81,6 +101,18 @@ class DomainTarget:
             String, self.flight_type_topic, 10)
         self.delay_per_setpoint_pub = self.node.create_publisher(
             Float64, self.delay_per_setpoint_topic, 10)
+
+        # /rosout -- see module docstring. One subscription per domain picks up
+        # get_logger() calls from every node running in that domain (offboard,
+        # mocap, estimator, ...), so error/warning monitoring needs no changes
+        # on the drone side. Buffered rather than handled inline; drain with
+        # drain_new_logs(). depth=50 gives the buffer headroom for a burst of
+        # log lines between two polls, since rosout is BEST-effort-adjacent in
+        # practice (RELIABLE/TRANSIENT_LOCAL upstream, but a busy node can log
+        # faster than a slow consumer drains).
+        self.log_entries = collections.deque(maxlen=2000)
+        self.rosout_sub = self.node.create_subscription(
+            Log, "/rosout", self._on_rosout, 50)
 
         # Not strictly required for pure publishing, but keeps the node's context
         # spinning (discovery, parameter services, future subscriptions) without
@@ -140,6 +172,26 @@ class DomainTarget:
         ]
         self.path_pub.publish(path)
         return path
+
+    def _on_rosout(self, msg):
+        """Buffer one /rosout entry; see drain_new_logs() for consuming them."""
+        stamp_sec = msg.stamp.sec + msg.stamp.nanosec * 1e-9
+        self.log_entries.append({
+            "domain_id": self.domain_id,
+            "namespace": self.namespace,
+            "target_label": self.label(),
+            "node": msg.name,
+            "level": msg.level,
+            "level_name": LOG_LEVEL_NAMES.get(msg.level, str(msg.level)),
+            "text": msg.msg,
+            "stamp_sec": stamp_sec,
+        })
+
+    def drain_new_logs(self):
+        """Pop and return every /rosout entry received since the last call."""
+        entries = list(self.log_entries)
+        self.log_entries.clear()
+        return entries
 
     def spin_once(self, timeout_sec=0.0):
         """Non-blocking pump for this domain's executor; safe to poll from a GUI loop."""

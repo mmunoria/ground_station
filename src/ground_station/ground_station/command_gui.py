@@ -28,6 +28,16 @@ are published as-is on each dispatched drone's /flight_type and
 /delay_per_setpoint topics -- there is no separate UI control for either,
 the formation file is the only source for them.
 
+An "Error / warning log" panel gives live, per-drone monitoring of every
+node's log output. Every ROS 2 node publishes its get_logger() calls to its
+domain's /rosout by default (rcl_interfaces/msg/Log) -- offboard/mocap/
+estimator nodes included -- so each DomainTarget's single /rosout
+subscription (see drone_targets.py) already sees every log line, including
+errors, that any node on that drone emits, with no per-topic wiring and no
+changes needed on the drone side. Rows are tagged with the originating
+domain/namespace and node name, and are colored by severity; the "Min
+level" dropdown filters what gets added to the table (default: Warning+).
+
 Threading model
 ----------------
 Rather than spinning each domain's node on a background thread (which would
@@ -42,8 +52,10 @@ services, etc.), and avoids any need for locks/queues between ROS and Qt.
 import json
 import os
 import sys
+import time
 
 from PyQt5.QtCore import Qt, QTimer
+from PyQt5.QtGui import QColor
 from PyQt5.QtWidgets import (
     QAbstractItemView,
     QApplication,
@@ -64,12 +76,30 @@ from PyQt5.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+from rcl_interfaces.msg import Log
 
 from .drone_targets import load_targets
 
 SPIN_TIMER_MS = 50
 WAYPOINT_HEADERS = ["#", "x (m)", "y (m)", "z (m)", "yaw (deg)"]
 FORMATION_HEADERS = ["Drone", "Target", "Setpoints (x, y, z) m"]
+LOG_HEADERS = ["Time", "Drone", "Node", "Level", "Message"]
+LOG_ROW_LIMIT = 1000  # oldest rows drop once the table hits this, newest at the bottom
+
+# Dropdown options for the log panel's "Min level" filter -- entries below the
+# selected level are dropped as they're drained, not just hidden, so lowering
+# the filter later won't bring back anything already discarded.
+LOG_LEVEL_OPTIONS = [
+    ("Warning+ (default)", Log.WARN),
+    ("Error+", Log.ERROR),
+    ("All (incl. info/debug)", Log.DEBUG),
+]
+
+LOG_LEVEL_COLORS = {
+    "WARN": QColor(255, 243, 176),
+    "ERROR": QColor(255, 205, 205),
+    "FATAL": QColor(255, 170, 170),
+}
 
 # Repo layout is .../ground_station/src/ground_station/ground_station/command_gui.py
 # and .../ground_station/flight_formations/ -- this only resolves when running from
@@ -122,6 +152,7 @@ class MainWindow(QMainWindow):
         root.addWidget(self._build_command_box())
         root.addWidget(self._build_setpoint_box())
         root.addWidget(self._build_formation_box())
+        root.addWidget(self._build_error_log_box())
 
         self.log = QPlainTextEdit()
         self.log.setReadOnly(True)
@@ -259,6 +290,34 @@ class MainWindow(QMainWindow):
         send_row.addWidget(send_formation_btn)
         send_row.addStretch(1)
         layout.addLayout(send_row)
+
+        return box
+
+    def _build_error_log_box(self):
+        box = QGroupBox("Error / warning log (all domains)")
+        layout = QVBoxLayout(box)
+
+        filter_row = QHBoxLayout()
+        filter_row.addWidget(QLabel("Min level:"))
+        self.log_level_combo = QComboBox()
+        for label, level in LOG_LEVEL_OPTIONS:
+            self.log_level_combo.addItem(label, level)
+        filter_row.addWidget(self.log_level_combo)
+        filter_row.addStretch(1)
+        clear_log_btn = QPushButton("Clear")
+        clear_log_btn.clicked.connect(self._clear_error_log)
+        filter_row.addWidget(clear_log_btn)
+        layout.addLayout(filter_row)
+
+        self.error_log_table = QTableWidget(0, len(LOG_HEADERS))
+        self.error_log_table.setHorizontalHeaderLabels(LOG_HEADERS)
+        header = self.error_log_table.horizontalHeader()
+        for col in range(len(LOG_HEADERS) - 1):
+            header.setSectionResizeMode(col, QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(len(LOG_HEADERS) - 1, QHeaderView.Stretch)
+        self.error_log_table.setSelectionMode(QAbstractItemView.NoSelection)
+        self.error_log_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        layout.addWidget(self.error_log_table)
 
         return box
 
@@ -519,11 +578,47 @@ class MainWindow(QMainWindow):
             f"{sent}/{len(formation['drones'])} drone(s)"
         )
 
+    # -------------------------------------------------------------- error log
+
+    def _clear_error_log(self):
+        self.error_log_table.setRowCount(0)
+
+    def _consume_target_logs(self, target):
+        min_level = self.log_level_combo.currentData()
+        for entry in target.drain_new_logs():
+            if entry["level"] >= min_level:
+                self._append_log_row(entry)
+
+    def _append_log_row(self, entry):
+        table = self.error_log_table
+        if table.rowCount() >= LOG_ROW_LIMIT:
+            table.removeRow(0)
+        row = table.rowCount()
+        table.insertRow(row)
+
+        stamp = entry["stamp_sec"]
+        time_text = time.strftime("%H:%M:%S", time.localtime(stamp)) if stamp else ""
+        values = [
+            time_text,
+            entry["target_label"],
+            entry["node"],
+            entry["level_name"],
+            entry["text"],
+        ]
+        color = LOG_LEVEL_COLORS.get(entry["level_name"])
+        for col, value in enumerate(values):
+            item = QTableWidgetItem(value)
+            if color is not None:
+                item.setBackground(color)
+            table.setItem(row, col, item)
+        table.scrollToBottom()
+
     # ------------------------------------------------------------- ROS pump
 
     def _poll_spin(self):
         for target in self.targets:
             target.spin_once(timeout_sec=0.0)
+            self._consume_target_logs(target)
 
     def closeEvent(self, event):
         self._spin_timer.stop()

@@ -3,6 +3,7 @@
   "run_number": 27,
   "coordinate_system": "tunnel",
   "flight_type": "hover",
+  "delay_per_setpoint":1,
   "num_drones": 5,
   "flight_speed_mps": null,
   "drones": [
