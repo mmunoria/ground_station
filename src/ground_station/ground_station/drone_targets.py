@@ -42,12 +42,27 @@ from std_msgs.msg import Float64, String
 
 FRAME_ID = "map"
 
+
+
+def level_int(level):
+    """Normalize a /rosout level to int.
+
+    rcl_interfaces/msg/Log declares its DEBUG/INFO/... constants as `byte`, so
+    rclpy exposes them as 1-length bytes (e.g. Log.WARN == b'\x1e'), while the
+    `level` field of a received message is a uint8 and arrives as an int.
+    Comparing or dict-keying one against the other silently fails or raises.
+    """
+    if isinstance(level, (bytes, bytearray)):
+        return level[0]
+    return int(level)
+
+
 LOG_LEVEL_NAMES = {
-    Log.DEBUG: "DEBUG",
-    Log.INFO: "INFO",
-    Log.WARN: "WARN",
-    Log.ERROR: "ERROR",
-    Log.FATAL: "FATAL",
+    level_int(Log.DEBUG): "DEBUG",
+    level_int(Log.INFO): "INFO",
+    level_int(Log.WARN): "WARN",
+    level_int(Log.ERROR): "ERROR",
+    level_int(Log.FATAL): "FATAL",
 }
 
 
@@ -181,8 +196,8 @@ class DomainTarget:
             "namespace": self.namespace,
             "target_label": self.label(),
             "node": msg.name,
-            "level": msg.level,
-            "level_name": LOG_LEVEL_NAMES.get(msg.level, str(msg.level)),
+            "level": level_int(msg.level),
+            "level_name": LOG_LEVEL_NAMES.get(level_int(msg.level), str(msg.level)),
             "text": msg.msg,
             "stamp_sec": stamp_sec,
         })

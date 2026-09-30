@@ -1,0 +1,36 @@
+File "/home/adkshatr/ground_station/install/ground_station/lib/python3.10/site-packages/ground_station/command_gui.py", line 621, in _poll_spin
+    self._consume_target_logs(target)
+  File "/home/adkshatr/ground_station/install/ground_station/lib/python3.10/site-packages/ground_station/command_gui.py", line 589, in _consume_target_logs
+    if entry["level"] >= min_level:
+TypeError: '>=' not supported between instances of 'int' and 'bytes'
+Traceback (most recent call last):
+  File "/home/adkshatr/ground_station/install/ground_station/lib/python3.10/site-packages/ground_station/command_gui.py", line 621, in _poll_spin
+    self._consume_target_logs(target)
+  File "/home/adkshatr/ground_station/install/ground_station/lib/python3.10/site-packages/ground_station/command_gui.py", line 589, in _consume_target_logs
+    if entry["level"] >= min_level:
+TypeError: '>=' not supported between instances of 'int' and 'bytes'
+Traceback (most recent call last):
+  File "/home/adkshatr/ground_station/install/ground_station/lib/python3.10/site-packages/ground_station/command_gui.py", line 621, in _poll_spin
+    self._consume_target_logs(target)
+  File "/home/adkshatr/ground_station/install/ground_station/lib/python3.10/site-packages/ground_station/command_gui.py", line 589, in _consume_target_logs
+    if entry["level"] >= min_level:
+TypeError: '>=' not supported between instances of 'int' and 'bytes'
+Traceback (most recent call last):
+  File "/home/adkshatr/ground_station/install/ground_station/lib/python3.10/site-packages/ground_station/command_gui.py", line 621, in _poll_spin
+    self._consume_target_logs(target)
+  File "/home/adkshatr/ground_station/install/ground_station/lib/python3.10/site-packages/ground_station/command_gui.py", line 589, in _consume_target_logs
+    if entry["level"] >= min_level:
+TypeError: '>=' not supported between instances of 'int' and 'bytes'
+Traceback (most recent call last):
+  File "/home/adkshatr/ground_station/install/ground_station/lib/python3.10/site-packages/ground_station/command_gui.py", line 621, in _poll_spin
+    self._consume_target_logs(target)
+  File "/home/adkshatr/ground_station/install/ground_station/lib/python3.10/site-packages/ground_station/command_gui.py", line 589, in _consume_target_logs
+    if entry["level"] >= min_level:
+TypeError: '>=' not supported between instances of 'int' and 'bytes'
+Traceback (most recent call last):
+  File "/home/adkshatr/ground_station/install/ground_station/lib/python3.10/site-packages/ground_station/command_gui.py", line 621, in _poll_spin
+    self._consume_target_logs(target)
+  File "/home/adkshatr/ground_station/install/ground_station/lib/python3.10/site-packages/ground_station/command_gui.py", line 589, in _consume_target_logs
+    if entry["level"] >= min_level:
+TypeError: '>=' not supported between instances of 'int' and 'bytes'
+

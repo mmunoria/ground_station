@@ -1,0 +1,27 @@
+Live Drone Monitoring - Summary
+
+The ground station GUI (command_gui.py, ROS 2 / PyQt5) includes a live
+monitoring panel that tracks the health of every connected drone in real
+time, in addition to sending commands and flight setpoints.
+
+How it works:
+- Each drone runs on its own ROS 2 domain (one domain ID + namespace per
+  drone). The ground station opens one subscription per drone to its
+  /rosout topic, which every ROS 2 node (flight controller interface,
+  offboard control, state estimator, etc.) automatically publishes its
+  log messages to.
+- A single QTimer drives all domains on the main thread (non-blocking
+  spin_once calls every 50 ms), so the UI stays responsive while polling
+  every drone simultaneously - no extra wiring needed per drone.
+- Incoming log lines are tagged with the originating drone, ROS node,
+  and severity (info/warn/error/fatal), then shown in a live table,
+  color-coded by severity (yellow = warning, red = error/fatal).
+- A "Min level" filter lets the operator show only warnings and above
+  (default), errors only, or everything including debug/info, so the
+  table isn't flooded during normal operation but nothing is missed
+  when something goes wrong.
+
+Net effect: an operator supervising a multi-drone flight sees arming
+issues, dropped setpoints, estimator faults, or any other node-level
+problem from any drone appear in one place as it happens, without
+needing to check each drone individually.

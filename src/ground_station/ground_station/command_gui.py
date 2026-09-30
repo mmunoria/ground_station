@@ -7,12 +7,14 @@ Graphical front-end for the ground_station command node.
         -p drone_namespaces:="['drone1','drone2','drone3','drone4','drone5','drone6','drone7']"
 
 Everything the terminal menu (command_node.py) offers -- arm/fly/hover/straight
-/land plus arbitrary custom command strings, broadcast to every configured
+/land/disarm/setpoints plus arbitrary custom command strings, broadcast to every configured
 domain -- is available here as buttons/fields. Alongside those, a "Mode" row
 of buttons (manual/position/offboard) broadcasts on each domain's /mode topic,
 also not tied to any file. In addition, a per-drone panel lets you pick one
 domain by ID and send it a single geometry_msgs/PoseStamped setpoint or build
-up a nav_msgs/Path of waypoints and send that.
+up a nav_msgs/Path of waypoints and send that. That panel is currently hidden
+(SHOW_MANUAL_SETPOINTS = False) since setpoints come from the formation file;
+flip the flag to bring it back.
 
 A "Flight formation" panel loads one of the JSON files described in
 ../../../flight_formations/README.md (schema_version/run_number/flight_type/
@@ -78,7 +80,7 @@ from PyQt5.QtWidgets import (
 )
 from rcl_interfaces.msg import Log
 
-from .drone_targets import load_targets
+from .drone_targets import level_int, load_targets
 
 SPIN_TIMER_MS = 50
 WAYPOINT_HEADERS = ["#", "x (m)", "y (m)", "z (m)", "yaw (deg)"]
@@ -90,9 +92,9 @@ LOG_ROW_LIMIT = 1000  # oldest rows drop once the table hits this, newest at the
 # selected level are dropped as they're drained, not just hidden, so lowering
 # the filter later won't bring back anything already discarded.
 LOG_LEVEL_OPTIONS = [
-    ("Warning+ (default)", Log.WARN),
-    ("Error+", Log.ERROR),
-    ("All (incl. info/debug)", Log.DEBUG),
+    ("Warning+ (default)", level_int(Log.WARN)),
+    ("Error+", level_int(Log.ERROR)),
+    ("All (incl. info/debug)", level_int(Log.DEBUG)),
 ]
 
 LOG_LEVEL_COLORS = {
@@ -109,12 +111,18 @@ FORMATIONS_DIR = os.path.normpath(
     os.path.join(os.path.dirname(__file__), "..", "..", "..", "flight_formations")
 )
 
+# Manual per-drone setpoint/path panel. Hidden for now -- setpoints come from
+# the flight formation file -- but kept intact so it can be switched back on.
+SHOW_MANUAL_SETPOINTS = False
+
 PRESET_COMMANDS = [
     ("arm", "arm"),
     ("fly", "fly"),
     ("hover", "hover"),
     ("straight", "straight"),
     ("land", "land"),
+    ("disarm", "disarm"),
+    ("setpoints", "setpoints"),
 ]
 
 # Vehicle mode buttons -- not tied to any flight formation file, just direct
@@ -150,7 +158,9 @@ class MainWindow(QMainWindow):
 
         root.addWidget(self._build_targets_box())
         root.addWidget(self._build_command_box())
-        root.addWidget(self._build_setpoint_box())
+        setpoint_box = self._build_setpoint_box()
+        setpoint_box.setVisible(SHOW_MANUAL_SETPOINTS)
+        root.addWidget(setpoint_box)
         root.addWidget(self._build_formation_box())
         root.addWidget(self._build_error_log_box())
 
