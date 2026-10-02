@@ -40,6 +40,12 @@ changes needed on the drone side. Rows are tagged with the originating
 domain/namespace and node name, and are colored by severity; the "Min
 level" dropdown filters what gets added to the table (default: Warning+).
 
+Every /rosout line received is also auto-saved -- regardless of the Min level
+filter or the table's row limit -- to a per-session CSV in LOG_DIR
+(~/ground_station_logs by default, override with $GROUND_STATION_LOG_DIR),
+flushed line by line so nothing is lost if the GUI crashes. "Save log as..."
+copies that full session file to a location of your choice.
+
 Threading model
 ----------------
 Rather than spinning each domain's node on a background thread (which would
@@ -51,8 +57,10 @@ domain's rclpy context do its normal background work (discovery, parameter
 services, etc.), and avoids any need for locks/queues between ROS and Qt.
 """
 
+import csv
 import json
 import os
+import shutil
 import sys
 import time
 
@@ -87,6 +95,11 @@ WAYPOINT_HEADERS = ["#", "x (m)", "y (m)", "z (m)", "yaw (deg)"]
 FORMATION_HEADERS = ["Drone", "Target", "Setpoints (x, y, z) m"]
 LOG_HEADERS = ["Time", "Drone", "Node", "Level", "Message"]
 LOG_ROW_LIMIT = 1000  # oldest rows drop once the table hits this, newest at the bottom
+
+# Where the per-session auto-saved log CSV goes -- see module docstring.
+LOG_DIR = os.environ.get(
+    "GROUND_STATION_LOG_DIR", os.path.expanduser("~/ground_station_logs"))
+LOG_FILE_HEADERS = ["Timestamp", "Domain", "Namespace", "Node", "Level", "Message"]
 
 # Dropdown options for the log panel's "Min level" filter -- entries below the
 # selected level are dropped as they're drained, not just hidden, so lowering
@@ -144,6 +157,7 @@ class MainWindow(QMainWindow):
 
         self.setWindowTitle("Ground Station Command GUI")
         self._build_ui()
+        self._open_log_file()
 
         # Non-blocking pump for every domain's executor -- see module docstring.
         self._spin_timer = QTimer(self)
@@ -317,7 +331,14 @@ class MainWindow(QMainWindow):
         clear_log_btn = QPushButton("Clear")
         clear_log_btn.clicked.connect(self._clear_error_log)
         filter_row.addWidget(clear_log_btn)
+        save_log_btn = QPushButton("Save log as...")
+        save_log_btn.clicked.connect(self._save_log_as)
+        filter_row.addWidget(save_log_btn)
         layout.addLayout(filter_row)
+
+        self.log_file_label = QLabel("Auto-saving to: (not started)")
+        self.log_file_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        layout.addWidget(self.log_file_label)
 
         self.error_log_table = QTableWidget(0, len(LOG_HEADERS))
         self.error_log_table.setHorizontalHeaderLabels(LOG_HEADERS)
@@ -591,11 +612,85 @@ class MainWindow(QMainWindow):
     # -------------------------------------------------------------- error log
 
     def _clear_error_log(self):
+        # Table only -- the auto-saved session file keeps everything.
         self.error_log_table.setRowCount(0)
+
+    def _open_log_file(self):
+        self._log_file = None
+        self._log_writer = None
+        self._log_file_path = None
+        path = os.path.join(
+            LOG_DIR, time.strftime("monitor_%Y%m%d_%H%M%S.csv", time.localtime()))
+        try:
+            os.makedirs(LOG_DIR, exist_ok=True)
+            self._log_file = open(path, "w", newline="", buffering=1)
+        except OSError as exc:
+            self.log_file_label.setText(f"Auto-save disabled: {exc}")
+            self._log(f"log auto-save disabled: {exc}")
+            return
+        self._log_writer = csv.writer(self._log_file)
+        self._log_writer.writerow(LOG_FILE_HEADERS)
+        self._log_file_path = path
+        self.log_file_label.setText(f"Auto-saving to: {path}")
+        self._log(f"monitor log auto-saving to {path}")
+
+    def _write_log_file_row(self, entry):
+        if self._log_writer is None:
+            return
+        stamp = entry["stamp_sec"]
+        if stamp:
+            stamp_text = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(stamp))
+            stamp_text += f".{int((stamp % 1) * 1000):03d}"
+        else:
+            stamp_text = ""
+        domain = entry["domain_id"] if entry["domain_id"] is not None else "default"
+        try:
+            self._log_writer.writerow([
+                stamp_text,
+                domain,
+                entry["namespace"] or "",
+                entry["node"],
+                entry["level_name"],
+                entry["text"],
+            ])
+        except OSError as exc:
+            self._log(f"log auto-save stopped: {exc}")
+            self.log_file_label.setText(f"Auto-save stopped: {exc}")
+            self._close_log_file()
+
+    def _close_log_file(self):
+        if self._log_file is not None:
+            try:
+                self._log_file.close()
+            except OSError:
+                pass
+        self._log_file = None
+        self._log_writer = None
+
+    def _save_log_as(self):
+        if self._log_file_path is None:
+            QMessageBox.warning(
+                self, "Save log", "No session log file -- auto-save is disabled.")
+            return
+        default_name = os.path.join(
+            os.path.expanduser("~"), os.path.basename(self._log_file_path))
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Save monitoring log", default_name, "CSV files (*.csv);;All files (*)")
+        if not path:
+            return
+        try:
+            if self._log_file is not None:
+                self._log_file.flush()
+            shutil.copyfile(self._log_file_path, path)
+        except OSError as exc:
+            QMessageBox.critical(self, "Save log", f"Could not save log:\n{exc}")
+            return
+        self._log(f"monitor log saved to {path}")
 
     def _consume_target_logs(self, target):
         min_level = self.log_level_combo.currentData()
         for entry in target.drain_new_logs():
+            self._write_log_file_row(entry)
             if entry["level"] >= min_level:
                 self._append_log_row(entry)
 
@@ -634,6 +729,7 @@ class MainWindow(QMainWindow):
         self._spin_timer.stop()
         for target in self.targets:
             target.close()
+        self._close_log_file()
         super().closeEvent(event)
 
 
