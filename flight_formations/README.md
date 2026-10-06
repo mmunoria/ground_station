@@ -25,7 +25,7 @@ free-form text so it can be validated and parsed programmatically.
 | `flight_speed_mps` | number \| null | Only used when `flight_type` is `"traverse"`. Ignored for `"hover"` (kept in the file, per the professors' example, rather than omitted — see below). |
 | `delay_per_setpoint` | number \| null | Seconds to hold at each `setpoints_m` entry before advancing to the next one. Optional — omit or leave `null` for no delay. |
 | `drones` | array | One entry per drone, length must equal `num_drones`. |
-| `drones[].drone_id` | int | 1–5. |
+| `drones[].drone_id` | int | The drone's ROS_DOMAIN_ID, which the ground station matches first. For the HALO drones this is 3–7 (UAV 1–5 in the run plan). |
 | `drones[].setpoints_m` | array of `{x, y, z}` | Ordered list of positions in meters, in `coordinate_system`, flown in sequence. For `"hover"`, exactly one entry. For `"traverse"`, at least two (first is the start, last is the end; extra entries are intermediate waypoints). |
 | `meta_data` | object | Logging/test-plan info, meant to eventually be auto-populated from the runlog (HALO sequences). |
 | `meta_data.run_number` | int | Cross-check copy of the top-level `run_number` (see below). |

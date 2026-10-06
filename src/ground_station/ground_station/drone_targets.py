@@ -6,7 +6,7 @@ list of drones by calling `load_targets()`, which reads the `drone_domains` /
 `drone_namespaces` parameters exactly as before and returns one `DomainTarget`
 per (domain, namespace) pair. Each `DomainTarget` owns its own rclpy `Context`
 bound to a single ROS_DOMAIN_ID -- that "one Context per domain" pattern is
-unchanged -- and now publishes six things into that domain:
+unchanged -- and now publishes seven things into that domain:
 
   * std_msgs/String        on  /{namespace}/command    (arm/hover/land/custom)
   * geometry_msgs/PoseStamped on /{namespace}/setpoint (single setpoint)
@@ -14,6 +14,7 @@ unchanged -- and now publishes six things into that domain:
   * std_msgs/String        on  /{namespace}/mode        (manual/position/offboard)
   * std_msgs/String        on  /{namespace}/flight_type (hover/traverse)
   * std_msgs/Float64       on  /{namespace}/delay_per_setpoint (seconds)
+  * std_msgs/Int32         on  /{namespace}/run_number  (test-plan run number)
 
 Each `DomainTarget` also *subscribes* to that domain's /rosout
 (rcl_interfaces/msg/Log). Every ROS 2 node publishes its `get_logger()` calls
@@ -38,7 +39,7 @@ from rcl_interfaces.msg import Log
 from rclpy.context import Context
 from rclpy.executors import SingleThreadedExecutor
 from rclpy.parameter import Parameter
-from std_msgs.msg import Float64, String
+from std_msgs.msg import Float64, Int32, String
 
 FRAME_ID = "map"
 
@@ -101,6 +102,8 @@ class DomainTarget:
             f"/{namespace}/flight_type" if namespace else "/flight_type")
         self.delay_per_setpoint_topic = (
             f"/{namespace}/delay_per_setpoint" if namespace else "/delay_per_setpoint")
+        self.run_number_topic = (
+            f"/{namespace}/run_number" if namespace else "/run_number")
 
         self.context = Context()
         rclpy.init(context=self.context, domain_id=domain_id)
@@ -116,6 +119,8 @@ class DomainTarget:
             String, self.flight_type_topic, 10)
         self.delay_per_setpoint_pub = self.node.create_publisher(
             Float64, self.delay_per_setpoint_topic, 10)
+        self.run_number_pub = self.node.create_publisher(
+            Int32, self.run_number_topic, 10)
 
         # /rosout -- see module docstring. One subscription per domain picks up
         # get_logger() calls from every node running in that domain (offboard,
@@ -175,6 +180,12 @@ class DomainTarget:
         msg = Float64()
         msg.data = float(seconds)
         self.delay_per_setpoint_pub.publish(msg)
+
+    def publish_run_number(self, run_number):
+        """Test-plan run number of the dispatched formation, on its own topic."""
+        msg = Int32()
+        msg.data = int(run_number)
+        self.run_number_pub.publish(msg)
 
     def publish_path(self, waypoints):
         """waypoints: iterable of (x, y, z, yaw_rad) tuples, sent in order."""

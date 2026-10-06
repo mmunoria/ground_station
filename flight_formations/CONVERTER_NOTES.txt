@@ -1,0 +1,110 @@
+RUN PLAN -> FLIGHT FORMATION CONVERTER: NOTES AND ASSUMPTIONS
+=============================================================
+
+Tool:    run_plan_converter.py (this folder). Python standard library only
+         (Tkinter GUI); it does not import anything from the ground station.
+Input:   260828-HALO-Wind_Tunnel_Run_Plan.xlsx - Run Plan.csv
+Output:  generated/R<NNN>.json, e.g. R001.json  (format: README.md, schema 2.0,
+         laid out like the files in "example jsons/")
+
+How to run
+----------
+  python3 run_plan_converter.py               GUI: pick a run, preview, convert
+  python3 run_plan_converter.py --run 27      one run, no GUI (repeat --run for more)
+  python3 run_plan_converter.py --all         every run
+
+In the GUI, clicking a run shows the JSON it would produce and any warnings.
+"Convert run #", "Convert selected" (Ctrl/Shift-click for several) and
+"Convert ALL" write the files. Existing files with the same name are overwritten.
+
+Sources used for the coordinates
+--------------------------------
+  additional docs/HALO-MTU-Flow-Sampling-Grid.pdf
+    - Taped floor grid, 3x3 pressure taps at X = 3600 / 4600 / 5600 mm,
+      Y = -1000 / 0 / +1000 mm.
+    - Center of the turntable at X = 5600 mm, Y = 0.
+    - Sampling heights z = 1428, 1928, 2428 mm; plate center assumed z = 1928.
+    - Flow speeds 6 / 9 / 12 m/s (21.6 / 32.4 / 43.2 km/h).
+  additional docs/HALO-MTU-flow-sample-points.xlsx
+    - Same X / Y / z values as the PDF (flow-sampling points). Used only to
+      confirm the grid values; it does not define drone locations.
+
+ASSUMPTIONS (please confirm; the ones marked * are my best guess)
+-----------------------------------------------------------------
+1. Altitude code 1 / 2 / 3  ->  z = 1428 / 1928 / 2428 mm.   (given by you)
+
+2.* Location code "(i j)" is a 3x3 grid on the PDF's pressure-tap / taped-grid
+    lines:
+        i (1st number) -> X column:  1 = 3600, 2 = 4600, 3 = 5600 mm
+        j (2nd number) -> Y row:     1 = -1000, 2 = 0, 3 = +1000 mm
+    Pt numbers in run names: Pt = 3*(i-1) + j, so Pt1 = (1 1), Pt5 = (2 2).
+    Why this orientation: run names like "1Max-Ty-Pt1" are +Y sweeps that start
+    at Pt1. With j = 1 at Y = -1000, a +Y sweep from Pt1 crosses the full
+    2 m width of the grid, which matches "+Y-Sweep-2" (2 m).
+    NOTE: this replaces the 0.5 m spacing assumed in
+    flight_formation_example_run27.json, which was never confirmed.
+
+3. Output is in the README's "tunnel" frame: meters, origin at the turntable
+   center. So x = (X - 5600)/1000 and y = Y/1000, giving:
+        (1 j) -> x = -2.0   (2 j) -> x = -1.0   (3 j) -> x = 0.0
+        (i 1) -> y = -1.0   (i 2) -> y =  0.0   (i 3) -> y = +1.0
+   *The PDF's +Y is assumed to be the README's +y (toward the wall away from
+   the control room). If it is the other way round, swap the Y values in the
+   GUI's grid fields to "1000, 0, -1000".
+
+4.* Sweeps (the altitude or location column holds a sweep instead of a code):
+     "-Z-Sweep"    at a location: 2428 -> 1428 mm (top to bottom)
+     "+Z-Sweep"    at a location: 1428 -> 2428 mm
+     "+Y-Sweep-2"  in the location column, with an altitude code: along the
+                   X = 3600 column (Pt1's column) from Y = -1000 to +1000 at
+                   that altitude
+     "+Y-Sweep" / "-Y-Sweep" in the altitude column at (2 2) (run 9): along
+                   X = 4600 from Y = -1000 to +1000 (or the reverse). The plan
+                   gives no altitude for these, so z = 1928 mm (plate center).
+
+5. A run has one row per test condition. All of a run's condition rows go into
+   meta_data.test_conditions, and each drone's setpoints_m has one entry per
+   row, in the same order (see "example jsons/"):
+     - hover row: its point, repeated for every row (8 rows -> 8 setpoints)
+     - sweep row: its start and end. The start is dropped when it equals the
+       previous row's end, so 16 rows alternating -Z / +Z become
+       2428 -> 1428 -> 2428 -> ... (17 setpoints).
+   delay_per_setpoint is 1 s (DEFAULT_DELAY_PER_SETPOINT).
+
+6.* Flow speed column: the header says "k/hr", so the plan value is written
+   as-is to flow_speed_kph, as in the example files. (Its values 0 / 6 / 9 /
+   12 match the PDF's m/s values, so the header may be wrong.)
+
+7. flight_type is "traverse" whenever any drone has a sweep, otherwise "hover".
+   flight_speed_mps is taken from "Traverse Speed [m/s]" (null for hover).
+
+8. Drone IDs. drone_id in the output is the drone's ROS_DOMAIN_ID, not the
+   plan's UAV number:
+        UAV 1 -> 3   UAV 2 -> 4   UAV 3 -> 5   UAV 4 -> 6   UAV 5 -> 7
+   The mapping is UAV_TO_DOMAIN_ID at the top of run_plan_converter.py.
+   The ground station's command GUI matches drone_id to a configured domain
+   with the same ROS_DOMAIN_ID first. config/drones.yaml sets
+   drone_domains: [3, 4, 5, 6, 7] to match.
+
+PLAN ISSUES THE CONVERTER FLAGS
+-------------------------------
+The converter prints each run's issues (CLI) or shows them above the preview
+(GUI); they are not written into the files.
+  - Run 9 has no run name.
+  - Runs 30 and 31: the Hover/Traverse column says "H", but every drone is on a
+    Z sweep and the names say "T". They are written as traverse.
+  - Runs 30, 31, 47 and 48 are traverses with no traverse speed, so
+    flight_speed_mps is null. The ground station then sends no "speed" command.
+  - Runs 30/31 and 47/48 are pairs with the same name and the same drones. The
+    only difference is the active point source (1, then 2). They are not
+    errors, but they produce the same flight path.
+  - Runs 36 and 37: UAV 1 is at altitude 3 while UAVs 2 and 3 are at 2 and 1.
+    This looks like a copy/paste slip in the plan; it is converted as written.
+  - The block of rows numbered 21..50 with no data at the bottom of the CSV is
+    ignored.
+
+CHANGING THE GRID
+-----------------
+Every number above lives in DEFAULT_GRID at the top of run_plan_converter.py,
+and the GUI's "Grid" fields can override it. If the facility gives a real
+legend for (i j), update DEFAULT_GRID and run "--all" again.

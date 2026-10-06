@@ -1,0 +1,114 @@
+{
+  "schema_version": "2.0",
+  "run_number": 3,
+  "coordinate_system": "tunnel",
+  "flight_type": "hover",
+  "delay_per_setpoint": 1,
+  "num_drones": 1,
+  "flight_speed_mps": null,
+  "drones": [
+    {
+      "drone_id": 3,
+      "setpoints_m": [
+        {
+          "x": -1.0,
+          "y": 0.0,
+          "z": 2.428
+        },
+        {
+          "x": -1.0,
+          "y": 0.0,
+          "z": 2.428
+        },
+        {
+          "x": -1.0,
+          "y": 0.0,
+          "z": 2.428
+        },
+        {
+          "x": -1.0,
+          "y": 0.0,
+          "z": 2.428
+        },
+        {
+          "x": -1.0,
+          "y": 0.0,
+          "z": 2.428
+        },
+        {
+          "x": -1.0,
+          "y": 0.0,
+          "z": 2.428
+        },
+        {
+          "x": -1.0,
+          "y": 0.0,
+          "z": 2.428
+        },
+        {
+          "x": -1.0,
+          "y": 0.0,
+          "z": 2.428
+        }
+      ],
+      "location_code": "(2 2)",
+      "altitude_code": 3
+    }
+  ],
+  "meta_data": {
+    "run_number": 3,
+    "num_drones": 1,
+    "run_name": "1Max-H-Pt5-Alt3-SS",
+    "halo_sequence": 1,
+    "hover_or_traverse": "H",
+    "turbulence_plate_installed": false,
+    "halo_test_attributes": "Arrays & Press",
+    "duration_s": 30.0,
+    "flow_speed_mps": null,
+    "flow_conditions": "Flow speed swept with turbulence plate removed",
+    "tunnel_test_sequence": "1.0",
+    "test_conditions": [
+      {
+        "flow_speed_kph": 0.0,
+        "sound_source_tone": "Tone",
+        "active_point_source_id": 1
+      },
+      {
+        "flow_speed_kph": 0.0,
+        "sound_source_tone": "Chirp",
+        "active_point_source_id": 1
+      },
+      {
+        "flow_speed_kph": 6.0,
+        "sound_source_tone": "Tone",
+        "active_point_source_id": 1
+      },
+      {
+        "flow_speed_kph": 6.0,
+        "sound_source_tone": "Chirp",
+        "active_point_source_id": 1
+      },
+      {
+        "flow_speed_kph": 9.0,
+        "sound_source_tone": "Tone",
+        "active_point_source_id": 1
+      },
+      {
+        "flow_speed_kph": 9.0,
+        "sound_source_tone": "Chirp",
+        "active_point_source_id": 1
+      },
+      {
+        "flow_speed_kph": 12.0,
+        "sound_source_tone": "Tone",
+        "active_point_source_id": 1
+      },
+      {
+        "flow_speed_kph": 12.0,
+        "sound_source_tone": "Chirp",
+        "active_point_source_id": 1
+      }
+    ],
+    "notes": null
+  }
+}

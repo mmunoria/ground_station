@@ -25,10 +25,10 @@ first setpoints_m entry (flight_type "hover", to hold position) plus a
 "speed <mps>" command when traversing (flight_type "traverse"). Either way,
 every setpoints_m entry -- one or many -- is also mirrored onto /path in
 order, so /path is never left empty (or truncated) after a formation
-dispatch, and the file's flight_type and delay_per_setpoint (when present)
-are published as-is on each dispatched drone's /flight_type and
-/delay_per_setpoint topics -- there is no separate UI control for either,
-the formation file is the only source for them.
+dispatch, and the file's run_number, flight_type and delay_per_setpoint
+(when present) are published as-is on each dispatched drone's /run_number,
+/flight_type and /delay_per_setpoint topics -- there is no separate UI
+control for any of them, the formation file is the only source for them.
 
 An "Error / warning log" panel gives live, per-drone monitoring of every
 node's log output. Every ROS 2 node publishes its get_logger() calls to its
@@ -517,6 +517,10 @@ class MainWindow(QMainWindow):
         delay = formation.get("delay_per_setpoint")
         if delay is not None and not isinstance(delay, (int, float)):
             raise ValueError("delay_per_setpoint must be a number or null")
+        run_number = formation.get("run_number")
+        if run_number is not None and (
+                isinstance(run_number, bool) or not isinstance(run_number, int)):
+            raise ValueError("run_number must be an integer or null")
         drones = formation.get("drones")
         if not isinstance(drones, list) or not drones:
             raise ValueError("drones must be a non-empty array")
@@ -570,6 +574,7 @@ class MainWindow(QMainWindow):
         flight_type = formation["flight_type"]
         speed = formation.get("flight_speed_mps")
         delay = formation.get("delay_per_setpoint")
+        run_number = formation.get("run_number")
         sent = 0
         for drone in formation["drones"]:
             drone_id = drone["drone_id"]
@@ -583,9 +588,11 @@ class MainWindow(QMainWindow):
             # single pose regardless of flight_type.
             waypoints = [(p["x"], p["y"], p["z"], 0.0) for p in setpoints]
             target.publish_path(waypoints)
-            # flight_type and delay_per_setpoint come straight from the loaded
-            # formation file (see flight_formations/README.md) -- there is no
-            # separate UI control for either.
+            # run_number, flight_type and delay_per_setpoint come straight from
+            # the loaded formation file (see flight_formations/README.md) --
+            # there is no separate UI control for any of them.
+            if run_number is not None:
+                target.publish_run_number(run_number)
             target.publish_flight_type(flight_type)
             if delay is not None:
                 target.publish_delay_per_setpoint(delay)
@@ -605,7 +612,7 @@ class MainWindow(QMainWindow):
                 )
             sent += 1
         self._log(
-            f"formation run {formation.get('run_number')}: dispatched "
+            f"formation run {run_number}: dispatched "
             f"{sent}/{len(formation['drones'])} drone(s)"
         )
 
