@@ -7,15 +7,6 @@ Input:   260828-HALO-Wind_Tunnel_Run_Plan.xlsx - Run Plan.csv
 Output:  generated/R<NNN>.json, e.g. R001.json  (format: README.md, schema 2.0,
          laid out like the files in "example jsons/")
 
-How to run
-----------
-  python3 run_plan_converter.py               GUI: pick a run, preview, convert
-  python3 run_plan_converter.py --run 27      one run, no GUI (repeat --run for more)
-  python3 run_plan_converter.py --all         every run
-
-In the GUI, clicking a run shows the JSON it would produce and any warnings.
-"Convert run #", "Convert selected" (Ctrl/Shift-click for several) and
-"Convert ALL" write the files. Existing files with the same name are overwritten.
 
 Sources used for the coordinates
 --------------------------------

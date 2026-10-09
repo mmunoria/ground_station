@@ -29,6 +29,8 @@ dispatch, and the file's run_number, flight_type and delay_per_setpoint
 (when present) are published as-is on each dispatched drone's /run_number,
 /flight_type and /delay_per_setpoint topics -- there is no separate UI
 control for any of them, the formation file is the only source for them.
+The panel's "Next setpoint" button broadcasts std_msgs/Bool(True) on every
+domain's /next topic, telling each drone to advance to its next setpoint.
 
 An "Error / warning log" panel gives live, per-drone monitoring of every
 node's log output. Every ROS 2 node publishes its get_logger() calls to its
@@ -312,6 +314,9 @@ class MainWindow(QMainWindow):
         send_formation_btn = QPushButton("Send formation (all drones)")
         send_formation_btn.clicked.connect(self._send_formation)
         send_row.addWidget(send_formation_btn)
+        next_btn = QPushButton("Next setpoint (all drones)")
+        next_btn.clicked.connect(self._broadcast_next)
+        send_row.addWidget(next_btn)
         send_row.addStretch(1)
         layout.addLayout(send_row)
 
@@ -386,6 +391,11 @@ class MainWindow(QMainWindow):
         for target in self.targets:
             target.publish_mode(text)
         self._log(f"mode {text!r} -> {len(self.targets)} target(s)")
+
+    def _broadcast_next(self):
+        for target in self.targets:
+            target.publish_next()
+        self._log(f"next -> {len(self.targets)} target(s)")
 
     def _selected_target(self):
         if not self.targets:
